@@ -1,0 +1,68 @@
+name: Construire Mili Delice APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Trouver le fichier ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -iname "*.zip" | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Aucun fichier ZIP trouvé."
+            exit 1
+          fi
+          echo "ZIP trouvé : $ZIP_FILE"
+          echo "ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
+
+      - name: Extraire le projet Mili Delice
+        run: |
+          mkdir -p project
+          unzip -q "$ZIP_FILE" -d project
+          echo "Contenu extrait :"
+          find project -maxdepth 3 -type f | head -50
+
+      - name: Trouver le projet Flutter
+        run: |
+          PUBSPEC=$(find project -name pubspec.yaml -type f | head -n 1)
+          if [ -z "$PUBSPEC" ]; then
+            echo "pubspec.yaml introuvable."
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$PUBSPEC")
+          echo "Projet Flutter trouvé dans : $PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Installer Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+          channel: stable
+          cache: true
+
+      - name: Préparer Android
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          flutter create . --platforms=android
+          flutter pub get
+
+      - name: Vérifier le projet
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter analyze
+
+      - name: Construire l'APK
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: flutter build apk --release
+
+      - name: Publier l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mili-Delice-APK
+          path: ${{ env.PROJECT_DIR }}/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
