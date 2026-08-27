@@ -1,0 +1,54 @@
+name: Construire Mili Delice APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Télécharger le dépôt
+        uses: actions/checkout@v4
+
+      - name: Télécharger le projet Mili Delice
+        run: |
+          curl -L \
+            "https://raw.githubusercontent.com/ousbydiarra23-hash/Mili-d-lice-manager/main/Mili_Delice_Manager_V4_BuildReady.zip" \
+            -o mili_delice.zip
+
+      - name: Extraire le projet
+        run: |
+          rm -rf app
+          mkdir app
+          unzip -q mili_delice.zip -d app
+
+      - name: Installer Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+          cache: true
+
+      - name: Créer la plateforme Android
+        working-directory: app
+        run: |
+          flutter create . --platforms=android --project-name mili_delice_manager
+
+      - name: Installer les dépendances
+        working-directory: app
+        run: flutter pub get
+
+      - name: Vérifier le projet
+        working-directory: app
+        run: flutter analyze
+
+      - name: Construire l'APK
+        working-directory: app
+        run: flutter build apk --release
+
+      - name: Publier l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mili-Delice-APK
+          path: app/build/app/outputs/flutter-apk/app-release.apk
